@@ -15,7 +15,7 @@ using namespace std;
 
 static void load_one_net_delay(vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id);
 
-static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id, unsigned int cluster_ctx_size, vtr::vector<ClusterNetId, std::vector<int>> &rr_terminals);
+static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id);
 
 static void load_one_constant_net_delay(vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id, float delay_value);
 
@@ -78,26 +78,23 @@ static void load_one_net_delay(vtr::vector<ClusterNetId, float *> &net_delay, Cl
 	
 	t_rt_node *rt_root;
 
-	auto& cluster_ctx = g_vpr_ctx.clustering();
-    unsigned int cluster_ctx_size = cluster_ctx.clb_nlist.net_pins(net_id).size();    
-
-    auto& route_ctx = g_vpr_ctx.routing();
-    vtr::vector<ClusterNetId, std::vector<int>> rr_terminals = route_ctx.net_rr_terminals;
-
     rt_root = traceback_to_route_tree(net_id); //obtain the root of the tree from the traceback
     load_new_subtree_R_upstream(rt_root); //load in the resistance values for the RT Tree
     load_new_subtree_C_downstream(rt_root); //load in the capacitance values for the RT Tree
     load_route_tree_Tdel(rt_root, 0.); //load the time delay values for the RT Tree
     // now I need to traverse the tree to fill in the values for the net_delay array.
-	load_one_net_delay_recurr(rt_root, net_delay, net_id, cluster_ctx_size, rr_terminals);  
+	load_one_net_delay_recurr(rt_root, net_delay, net_id);  
     free_route_tree(rt_root); // free the route tree
 }
 
-static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id, unsigned int cluster_ctx_size, vtr::vector<ClusterNetId, std::vector<int>> &rr_terminals){
+static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id){
     // find the pin's index of the inode in the vector net_rr_terminals.
+	
+    auto& cluster_ctx = g_vpr_ctx.clustering();
+    auto& route_ctx = g_vpr_ctx.routing();
 
-	for (unsigned int ipin = 1; ipin < cluster_ctx_size; ipin++) {
-        if (rr_terminals[net_id][ipin] == node->inode)
+	for (unsigned int ipin = 1; ipin < cluster_ctx.clb_nlist.net_pins(net_id).size(); ipin++) {
+        if (route_ctx.net_rr_terminals[net_id][ipin] == node->inode)
         {
             net_delay[net_id][ipin] = node->Tdel;
         }
@@ -106,7 +103,7 @@ static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId,
     // finished processing the nodes
     
     for (t_linked_rt_edge* edge = node->u.child_list; edge != nullptr; edge = edge->next) {
-        load_one_net_delay_recurr(edge->child, net_delay, net_id, cluster_ctx_size, rr_terminals);
+        load_one_net_delay_recurr(edge->child, net_delay, net_id);
     }
 }
 
