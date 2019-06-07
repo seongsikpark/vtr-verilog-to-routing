@@ -76,6 +76,13 @@ void load_net_delay_from_routing(vtr::vector<ClusterNetId, float *> &net_delay) 
 
 static void load_one_net_delay(vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id) {
 	
+	/* This routine loads delay values of one net in the 2-dimensional vector    *
+     * net_delay[net_id][1..num_pins-1]. First, it constructs the route tree     *
+     * from the traceback, next it updates the values for R, C, and Tdel.        *
+     * Next, it walks the route tree recursively, updating the net delay         *
+     * array during the traversal. Finally it frees teh route tree.              *
+	 * allocated.                                                                */
+
 	t_rt_node *rt_root;
 
     rt_root = traceback_to_route_tree(net_id); //obtain the root of the tree from the traceback
@@ -88,6 +95,11 @@ static void load_one_net_delay(vtr::vector<ClusterNetId, float *> &net_delay, Cl
 }
 
 static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId, float *> &net_delay, ClusterNetId net_id){
+	/* This routine recursively traverses the route tree. It first searches      *
+     * for the indices of net_delay which correspond to the input's inode.       *
+     * Once it is found, the net_delay is immediately updated. Then it needs     *
+     * to process all of the children.                                           */
+
     // find the pin's index of the inode in the vector net_rr_terminals.
 	
     auto& cluster_ctx = g_vpr_ctx.clustering();
@@ -100,7 +112,7 @@ static void load_one_net_delay_recurr(t_rt_node* node, vtr::vector<ClusterNetId,
         }
     }
     
-    // finished processing the nodes
+    // finished processing the nodes, process the children.
     
     for (t_linked_rt_edge* edge = node->u.child_list; edge != nullptr; edge = edge->next) {
         load_one_net_delay_recurr(edge->child, net_delay, net_id);
